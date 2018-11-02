@@ -1,12 +1,13 @@
 import pygame
-import os
+import ImageLibrary
 import Actor
 import ActorFactory
+import NewCatButton
+import Levels
 
 BACKGROUND_COLOUR = (255, 255, 255)
-_image_library = {}
-rootFolder = './'
-           
+timer = 0
+
 class Base(pygame.sprite.Sprite):
     '''Base sprite'''
     
@@ -28,62 +29,9 @@ class Base(pygame.sprite.Sprite):
         self.energy -= attackPower
         if self.energy <= 0:
             print(self.name + ' defeated!')
-
-class NewCatButton:
-    '''Button to add a new cat'''
-
-    def __init__(self, image, position, size, actorName, researchTime):
-        self.image = getImage(image, size)
-        self.position = position
-        self.size = size
-        self.rect = pygame.Rect(position, size)
-        self.actorName = actorName
-        self.researchTime= researchTime
-        self.researchCounter = self.researchTime
-
-    def click(self, point):
-        return self.rect.collidepoint(point)
-
-    def onClicked(self):
-        self.researchCounter = 0
-
-    def draw(self, screen):
-        screen.blit(self.image, self.position)
-
-        if not self.isAvailable():
-            downlight = pygame.Surface(self.size)
-            downlight.set_alpha(200)
-            downlight.fill((0, 0, 0))
-            screen.blit(downlight, self.position)
-
-        researchPercentageComplete = self.researchCounter / self.researchTime
-        researchGaugeWidth = self.size[0]*researchPercentageComplete
-        researchGaugeHeight = self.size[1]*0.1
-        researchGaugeX = self.position[0]
-        researchGaugeY = self.position[1] + self.size[1] - researchGaugeHeight
-        pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(researchGaugeX, researchGaugeY, researchGaugeWidth, researchGaugeHeight))
-
-    def update(self):
-        if self.researchCounter < self.researchTime:
-            self.researchCounter += 1
-            
-    def isAvailable(self):
-        return self.researchCounter >= self.researchTime
-
         
 def log(message):
     print(message)
-    
-def getImage(path, scale):
-    global _image_library
-    scaled_image = _image_library.get(path)
-    if scaled_image == None:
-        full_path = rootFolder + path
-        canonicalized_path = full_path.replace('/', os.sep)
-        image = pygame.image.load(canonicalized_path)
-        scaled_image = pygame.transform.scale(image, (scale[0], scale[1]))
-        _image_library[path] = scaled_image
-    return scaled_image
 
 def drawBackground(screen):
     screen.fill(BACKGROUND_COLOUR)
@@ -95,7 +43,9 @@ def drawActors(actors, screen):
 def updateScreen():
     pygame.display.flip()
 
-def updateGame(actors):
+def updateGame(actors, level):
+    global timer
+    timer += 1
     actors.update()
     for homeSprite in homeSprites:
         if homeSprite.defeated:
@@ -103,8 +53,12 @@ def updateGame(actors):
     for enemySprite in enemySprites:
         if enemySprite.defeated:
             enemySprite.kill()
+    event = level.getEvents(timer)
+    if not event == None:
+        addEnemy(actorFactory.create(event))
 
-def addEnemy(actor, xPosition):
+def addEnemy(actor):
+    xPosition = screen_width
     actor.setPosition((xPosition, screen_height-75-actor.height))
     actors.add(actor)
     enemySprites.add(actor)
@@ -121,7 +75,7 @@ def getNewCatButtons(team, actorFactory):
     x = 10
     for teamMember in team:
         actor = actorFactory.create(teamMember)
-        newCatButtons.append(NewCatButton(actor.imagePath, (x, screen_height - 50), (40, 40), actor.name, actor.researchTime))
+        newCatButtons.append(NewCatButton.NewCatButton(actor.imagePath, (x, screen_height - 50), (40, 40), actor.name, actor.researchTime))
         x += 50               
     return newCatButtons
 
@@ -152,9 +106,7 @@ enemyBase = Base("Enemy base", (150, 10, 10), screen_width-base_width-10, screen
 actors.add(enemyBase)
 enemySprites.add(enemyBase)
 
-addEnemy(actorFactory.create("Basic dog"), screen_width-50)
-addEnemy(actorFactory.create("Basic dog"), screen_width)
-addEnemy(actorFactory.create("Basic dog"), screen_width+50)
+level = Levels.Level1()
 
 # -------- Main Program Loop -----------
 done = False
@@ -173,7 +125,7 @@ while not done:
     for button in newCatButtons:
         button.update()
         button.draw(screen)
-    updateGame(actors)
+    updateGame(actors, level)
     clock.tick(60)
     updateScreen() 
  
